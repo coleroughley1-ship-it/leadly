@@ -1,8 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabase"
 import Link from "next/link"
+import { supabase } from "@/lib/supabase"
 
 type LeadDecision = {
   lead_id: string
@@ -18,7 +18,7 @@ export default function Page() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // Filters + sorting
+  // Filters & sorting
   const [actionFilter, setActionFilter] =
     useState<"all" | "pursue" | "review" | "deprioritise" | "kill">("all")
 
@@ -28,7 +28,7 @@ export default function Page() {
   const [sortBy, setSortBy] =
     useState<"score_desc" | "score_asc">("score_desc")
 
-  // Decision logging
+  // Log decisions (fire-and-forget memory)
   const logDecisions = async (leads: LeadDecision[]) => {
     if (!leads.length) return
 
@@ -60,10 +60,12 @@ export default function Page() {
     fetchLeads()
   }, [])
 
+  // Derived visible leads
   const visibleLeads = leads
     .filter((lead) => {
-      if (actionFilter !== "all" && lead.recommended_action !== actionFilter)
+      if (actionFilter !== "all" && lead.recommended_action !== actionFilter) {
         return false
+      }
 
       if (scoreFilter === "high" && lead.score < 80) return false
       if (scoreFilter === "mid" && (lead.score < 60 || lead.score >= 80))
@@ -81,7 +83,7 @@ export default function Page() {
   if (error) {
     return (
       <main className="p-10">
-        <h1 className="text-xl font-semibold text-red-600 mb-4">
+        <h1 className="text-xl font-semibold mb-4 text-red-600">
           Leadly — Error
         </h1>
         <pre className="text-sm">{error}</pre>
@@ -138,14 +140,14 @@ export default function Page() {
         {visibleLeads.map((lead) => (
           <Link
             key={lead.lead_id}
-            href={`/decision/${lead.lead_id}`}
-            className="block"
+            href={`/decision?lead_id=${lead.lead_id}`}
           >
-            <div className="bg-white border rounded-xl p-6 shadow-sm hover:border-gray-400 cursor-pointer">
+            <div className="bg-white border rounded-xl p-6 shadow-sm cursor-pointer hover:border-gray-400 transition">
               <div className="flex items-start justify-between gap-4">
                 <h2 className="text-lg font-medium leading-tight">
                   {lead.company_name}
                 </h2>
+
                 <span className="text-sm font-semibold text-gray-700">
                   {lead.score}
                 </span>
@@ -159,7 +161,8 @@ export default function Page() {
                 <p className="text-sm font-medium mb-2">
                   Why this decision
                 </p>
-                <ul className="space-y-1 text-sm">
+
+                <ul className="space-y-1 text-sm text-gray-800">
                   {lead.positive_reasons.slice(0, 3).map((r, i) => (
                     <li key={i}>• {r}</li>
                   ))}
@@ -171,6 +174,7 @@ export default function Page() {
                   <summary className="text-sm text-gray-600 cursor-pointer">
                     Risks
                   </summary>
+
                   <ul className="mt-2 space-y-1 text-sm text-gray-600">
                     {lead.negative_reasons.map((r, i) => (
                       <li key={i}>• {r}</li>
