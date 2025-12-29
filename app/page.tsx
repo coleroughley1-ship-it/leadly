@@ -17,23 +17,37 @@ export default function Page() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
+  const logDecisions = async (leads: LeadDecision[]) => {
+  if (!leads.length) return
+
+  const payload = leads.map((lead) => ({
+    lead_id: lead.lead_id,
+    score: lead.score,
+    recommended_action: lead.recommended_action,
+  }))
+
+  await supabase.from("decision_logs").insert(payload)
+}
+  
   useEffect(() => {
-    const fetchLeads = async () => {
-      const { data, error } = await supabase
-        .from("leads_scored")
-        .select("*")
+  const fetchLeads = async () => {
+    const { data, error } = await supabase
+      .from("leads_scored")
+      .select("*")
 
-      if (error) {
-        setError(error.message)
-      } else {
-        setLeads(data || [])
-      }
-
-      setLoading(false)
+    if (error) {
+      setError(error.message)
+    } else {
+      setLeads(data || [])
+      await logDecisions(data || [])
     }
 
-    fetchLeads()
-  }, [])
+    setLoading(false)
+  }
+
+  fetchLeads()
+}, [])
+
 
   if (error) {
     return (
