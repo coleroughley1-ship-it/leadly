@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
+import Link from "next/link"
 
 type LeadDecision = {
   lead_id: string
@@ -17,7 +18,7 @@ export default function Page() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // 🔹 NEW: filter + sort state
+  // Filters + sorting
   const [actionFilter, setActionFilter] =
     useState<"all" | "pursue" | "review" | "deprioritise" | "kill">("all")
 
@@ -27,6 +28,7 @@ export default function Page() {
   const [sortBy, setSortBy] =
     useState<"score_desc" | "score_asc">("score_desc")
 
+  // Decision logging
   const logDecisions = async (leads: LeadDecision[]) => {
     if (!leads.length) return
 
@@ -58,12 +60,10 @@ export default function Page() {
     fetchLeads()
   }, [])
 
-  // 🔹 NEW: derived visible leads (filters + sorting)
   const visibleLeads = leads
     .filter((lead) => {
-      if (actionFilter !== "all" && lead.recommended_action !== actionFilter) {
+      if (actionFilter !== "all" && lead.recommended_action !== actionFilter)
         return false
-      }
 
       if (scoreFilter === "high" && lead.score < 80) return false
       if (scoreFilter === "mid" && (lead.score < 60 || lead.score >= 80))
@@ -81,7 +81,7 @@ export default function Page() {
   if (error) {
     return (
       <main className="p-10">
-        <h1 className="text-xl font-semibold mb-4 text-red-600">
+        <h1 className="text-xl font-semibold text-red-600 mb-4">
           Leadly — Error
         </h1>
         <pre className="text-sm">{error}</pre>
@@ -95,7 +95,7 @@ export default function Page() {
         Leadly — Decision Feed
       </h1>
 
-      {/* 🔹 NEW: filter controls */}
+      {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-6">
         <select
           className="border rounded px-3 py-2 text-sm"
@@ -136,50 +136,50 @@ export default function Page() {
 
       <div className="space-y-6">
         {visibleLeads.map((lead) => (
-          <div
+          <Link
             key={lead.lead_id}
-            className="bg-white border rounded-xl p-6 shadow-sm"
+            href={`/decision/${lead.lead_id}`}
+            className="block"
           >
-            <div className="flex items-start justify-between gap-4">
-              <h2 className="text-lg font-medium leading-tight">
-                {lead.company_name}
-              </h2>
+            <div className="bg-white border rounded-xl p-6 shadow-sm hover:border-gray-400 cursor-pointer">
+              <div className="flex items-start justify-between gap-4">
+                <h2 className="text-lg font-medium leading-tight">
+                  {lead.company_name}
+                </h2>
+                <span className="text-sm font-semibold text-gray-700">
+                  {lead.score}
+                </span>
+              </div>
 
-              <span className="text-sm font-semibold text-gray-700">
-                {lead.score}
-              </span>
-            </div>
+              <div className="mt-3">
+                <ActionPill action={lead.recommended_action} />
+              </div>
 
-            <div className="mt-3">
-              <ActionPill action={lead.recommended_action} />
-            </div>
-
-            <div className="mt-5">
-              <p className="text-sm font-medium mb-2">
-                Why this decision
-              </p>
-
-              <ul className="space-y-1 text-sm text-gray-800">
-                {lead.positive_reasons.slice(0, 3).map((r, i) => (
-                  <li key={i}>• {r}</li>
-                ))}
-              </ul>
-            </div>
-
-            {lead.negative_reasons.length > 0 && (
-              <details className="mt-4">
-                <summary className="text-sm text-gray-600 cursor-pointer">
-                  Risks
-                </summary>
-
-                <ul className="mt-2 space-y-1 text-sm text-gray-600">
-                  {lead.negative_reasons.map((r, i) => (
+              <div className="mt-5">
+                <p className="text-sm font-medium mb-2">
+                  Why this decision
+                </p>
+                <ul className="space-y-1 text-sm">
+                  {lead.positive_reasons.slice(0, 3).map((r, i) => (
                     <li key={i}>• {r}</li>
                   ))}
                 </ul>
-              </details>
-            )}
-          </div>
+              </div>
+
+              {lead.negative_reasons.length > 0 && (
+                <details className="mt-4">
+                  <summary className="text-sm text-gray-600 cursor-pointer">
+                    Risks
+                  </summary>
+                  <ul className="mt-2 space-y-1 text-sm text-gray-600">
+                    {lead.negative_reasons.map((r, i) => (
+                      <li key={i}>• {r}</li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+            </div>
+          </Link>
         ))}
       </div>
     </main>
@@ -206,7 +206,3 @@ function ActionPill({
     </span>
   )
 }
-
-
-
-
