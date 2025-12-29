@@ -1,14 +1,41 @@
+"use client"
+
+import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 
-export default async function Page() {
-  const { data: leads, error } = await supabase
-    .from("leads_scored")
-    .select("*")
+type LeadDecision = {
+  lead_id: string
+  company_name: string
+  score: number
+  recommended_action: "pursue" | "review" | "deprioritise" | "kill"
+  positive_reasons: string[]
+  negative_reasons: string[]
+}
+
+export default function Page() {
+  const [leads, setLeads] = useState<LeadDecision[]>([])
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchLeads = async () => {
+      const { data, error } = await supabase
+        .from("leads_scored")
+        .select("*")
+
+      if (error) {
+        setError(error.message)
+      } else {
+        setLeads(data || [])
+      }
+    }
+
+    fetchLeads()
+  }, [])
 
   if (error) {
     return (
       <main className="p-10">
-        <pre>{error.message}</pre>
+        <pre>{error}</pre>
       </main>
     )
   }
@@ -25,12 +52,12 @@ export default async function Page() {
             key={lead.lead_id}
             className="bg-white border rounded-xl p-6 shadow-sm"
           >
-            <div className="flex items-start justify-between">
-              <h2 className="text-lg font-medium">
+            <div className="flex items-start justify-between gap-4">
+              <h2 className="text-lg font-medium leading-tight">
                 {lead.company_name}
               </h2>
 
-              <span className="text-sm font-semibold">
+              <span className="text-sm font-semibold text-gray-700">
                 {lead.score}
               </span>
             </div>
@@ -43,7 +70,8 @@ export default async function Page() {
               <p className="text-sm font-medium mb-2">
                 Why this decision
               </p>
-              <ul className="space-y-1 text-sm">
+
+              <ul className="space-y-1 text-sm text-gray-800">
                 {lead.positive_reasons.slice(0, 3).map((r, i) => (
                   <li key={i}>• {r}</li>
                 ))}
@@ -55,7 +83,8 @@ export default async function Page() {
                 <summary className="text-sm text-gray-600 cursor-pointer">
                   Risks
                 </summary>
-                <ul className="mt-2 text-sm text-gray-600 space-y-1">
+
+                <ul className="mt-2 space-y-1 text-sm text-gray-600">
                   {lead.negative_reasons.map((r, i) => (
                     <li key={i}>• {r}</li>
                   ))}
@@ -69,7 +98,11 @@ export default async function Page() {
   )
 }
 
-function ActionPill({ action }: { action: string }) {
+function ActionPill({
+  action,
+}: {
+  action: LeadDecision["recommended_action"]
+}) {
   const styles: Record<string, string> = {
     pursue: "bg-green-100 text-green-800",
     review: "bg-amber-100 text-amber-800",
@@ -78,9 +111,12 @@ function ActionPill({ action }: { action: string }) {
   }
 
   return (
-    <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${styles[action]}`}>
+    <span
+      className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${styles[action]}`}
+    >
       {action.toUpperCase()}
     </span>
   )
 }
+
 
