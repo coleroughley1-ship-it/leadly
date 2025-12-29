@@ -15,6 +15,7 @@ type LeadDecision = {
 export default function Page() {
   const [leads, setLeads] = useState<LeadDecision[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const fetchLeads = async () => {
@@ -27,6 +28,8 @@ export default function Page() {
       } else {
         setLeads(data || [])
       }
+
+      setLoading(false)
     }
 
     fetchLeads()
@@ -35,16 +38,27 @@ export default function Page() {
   if (error) {
     return (
       <main className="p-10">
-        <pre>{error}</pre>
+        <h1 className="text-xl font-semibold mb-4 text-red-600">
+          Leadly — Error
+        </h1>
+        <pre className="text-sm">{error}</pre>
       </main>
     )
   }
 
   return (
     <main className="max-w-3xl mx-auto px-6 py-10 bg-gray-50 min-h-screen">
-      <h1 className="text-2xl font-semibold mb-8">
-        Leadly — Decision Feed
+      <h1 className="text-3xl font-bold mb-2 text-red-600">
+        🔴 LEADLY DECISION FEED — NEW UI 🔴
       </h1>
+
+      <p className="text-sm text-gray-500 mb-8">
+        Leads loaded: {leads.length}
+      </p>
+
+      {loading && (
+        <p className="text-sm text-gray-500">Loading decisions…</p>
+      )}
 
       <div className="space-y-6">
         {leads.map((lead) => (
@@ -118,5 +132,6 @@ function ActionPill({
     </span>
   )
 }
+
 
 
