@@ -49,13 +49,9 @@ export default function Page() {
   return (
     <main className="max-w-3xl mx-auto px-6 py-10 bg-gray-50 min-h-screen">
       <h1 className="text-3xl font-bold mb-2 text-red-600">
-        🔴 LEADLY DECISION FEED — NEW UI 🔴
+         LEADLY DECISION FEED 
       </h1>
-
-      <p className="text-sm text-gray-500 mb-8">
-        Leads loaded: {leads.length}
-      </p>
-
+      
       {loading && (
         <p className="text-sm text-gray-500">Loading decisions…</p>
       )}
