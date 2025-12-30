@@ -26,8 +26,7 @@ export default function DecisionInner() {
   const leadId = searchParams.get("lead_id")
 
   const [lead, setLead] = useState<LeadDecision | null>(null)
-  const [latestOverride, setLatestOverride] =
-    useState<DecisionOverride | null>(null)
+  const [latestOverride, setLatestOverride] = useState<DecisionOverride | null>(null)
   const [history, setHistory] = useState<DecisionOverride[]>([])
 
   const [overrideAction, setOverrideAction] =
@@ -39,18 +38,12 @@ export default function DecisionInner() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // ✅ FINAL effective decision logic (authoritative)
+  // ✅ Effective decision logic
   const effectiveAction = useMemo(() => {
     if (!lead) return "review"
-
-    if (!latestOverride) {
+    if (!latestOverride) return lead.recommended_action
+    if (latestOverride.override_action === lead.recommended_action)
       return lead.recommended_action
-    }
-
-    if (latestOverride.override_action === lead.recommended_action) {
-      return lead.recommended_action
-    }
-
     return latestOverride.override_action
   }, [lead, latestOverride])
 
@@ -142,7 +135,7 @@ export default function DecisionInner() {
     }
   }
 
-  // ✅ NEW — Outcome logging
+  // ✅ Outcome logging (append-only)
   const markOutcome = async (
     outcome: "won" | "lost" | "no_response"
   ) => {
@@ -222,9 +215,10 @@ export default function DecisionInner() {
           </select>
 
           <button
+            type="button"
             onClick={saveOverride}
             disabled={saving}
-            className="px-4 py-2 rounded bg-black text-white text-sm disabled:opacity-60"
+            className="px-4 py-2 rounded bg-black text-white text-sm disabled:opacity-60 pointer-events-auto cursor-pointer"
           >
             {saving ? "Saving…" : "Save override"}
           </button>
@@ -245,28 +239,31 @@ export default function DecisionInner() {
         </div>
       </section>
 
-      {/* ✅ NEW — Outcome section */}
+      {/* ✅ Outcome section */}
       <section className="mb-8 border-t pt-6">
         <h2 className="text-sm font-semibold mb-3">Outcome</h2>
 
         <div className="flex gap-3">
           <button
+            type="button"
             onClick={() => markOutcome("won")}
-            className="px-3 py-1 rounded bg-green-600 text-white text-sm"
+            className="px-3 py-1 rounded bg-green-600 text-white text-sm pointer-events-auto cursor-pointer"
           >
             Mark Won
           </button>
 
           <button
+            type="button"
             onClick={() => markOutcome("lost")}
-            className="px-3 py-1 rounded bg-red-600 text-white text-sm"
+            className="px-3 py-1 rounded bg-red-600 text-white text-sm pointer-events-auto cursor-pointer"
           >
             Mark Lost
           </button>
 
           <button
+            type="button"
             onClick={() => markOutcome("no_response")}
-            className="px-3 py-1 rounded bg-gray-500 text-white text-sm"
+            className="px-3 py-1 rounded bg-gray-500 text-white text-sm pointer-events-auto cursor-pointer"
           >
             No Response
           </button>
