@@ -41,12 +41,12 @@ export default function Page() {
   >("all")
   const [sortBy, setSortBy] = useState<"score_desc" | "score_asc">("score_desc")
 
-  // ✅ NEW — outcome filter
+  // Outcome filter
   const [outcomeFilter, setOutcomeFilter] = useState<
     "all" | "won" | "lost" | "pending"
   >("all")
 
-  // Optional logging of EFFECTIVE decisions
+  // Optional logging
   const logDecisions = async (rows: LeadDecisionRow[]) => {
     if (!rows.length) return
 
@@ -81,15 +81,22 @@ export default function Page() {
     fetchLeads()
   }, [])
 
+  // ✅ COUNTS (NEW)
+  const outcomeCounts = useMemo(() => {
+    return {
+      pending: leads.filter((l) => l.outcome_status === "pending").length,
+      won: leads.filter((l) => l.outcome_status === "won").length,
+      lost: leads.filter((l) => l.outcome_status === "lost").length,
+    }
+  }, [leads])
+
   const visibleLeads = useMemo(() => {
     return leads
       .filter((lead) => {
-        // action filter
         if (actionFilter !== "all" && lead.effective_action !== actionFilter) {
           return false
         }
 
-        // ✅ outcome filter
         if (
           outcomeFilter !== "all" &&
           lead.outcome_status !== outcomeFilter
@@ -97,7 +104,6 @@ export default function Page() {
           return false
         }
 
-        // score filters
         if (scoreFilter === "high" && lead.score < 80) return false
         if (scoreFilter === "mid" && (lead.score < 60 || lead.score >= 80))
           return false
@@ -126,6 +132,29 @@ export default function Page() {
   return (
     <main className="max-w-3xl mx-auto px-6 py-10 bg-gray-50 min-h-screen">
       <h1 className="text-2xl font-semibold mb-2">Leadly — Decision Feed</h1>
+
+      {/* ✅ COUNTS BAR */}
+      <div className="flex gap-4 text-sm mb-6">
+        <button
+          onClick={() => setOutcomeFilter("pending")}
+          className="text-gray-700 hover:underline"
+        >
+          Pending ({outcomeCounts.pending})
+        </button>
+        <button
+          onClick={() => setOutcomeFilter("won")}
+          className="text-green-700 hover:underline"
+        >
+          Won ({outcomeCounts.won})
+        </button>
+        <button
+          onClick={() => setOutcomeFilter("lost")}
+          className="text-red-700 hover:underline"
+        >
+          Lost ({outcomeCounts.lost})
+        </button>
+      </div>
+
       <p className="text-sm text-gray-600 mb-6">
         Leads loaded: {leads.length}
       </p>
@@ -164,7 +193,6 @@ export default function Page() {
           <option value="score_asc">Lowest score</option>
         </select>
 
-        {/* ✅ NEW — outcome filter */}
         <select
           className="border rounded px-3 py-2 text-sm"
           value={outcomeFilter}
