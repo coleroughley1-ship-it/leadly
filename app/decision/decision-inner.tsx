@@ -14,13 +14,6 @@ type LeadDecision = {
 }
 
 type DecisionOverride = {
-  lead_id: string
-  override_action: LeadDecision["recommended_action"]
-  override_reason: string | null
-  created_at: string
-}
-
-type DecisionHistoryEvent = {
   id: string
   lead_id: string
   override_action: LeadDecision["recommended_action"]
@@ -33,33 +26,32 @@ export default function DecisionInner() {
   const leadId = searchParams.get("lead_id")
 
   const [lead, setLead] = useState<LeadDecision | null>(null)
-  const [override, setOverride] = useState<DecisionOverride | null>(null)
-  const [history, setHistory] = useState<DecisionHistoryEvent[]>([])
+  const [latestOverride, setLatestOverride] = useState<DecisionOverride | null>(null)
+  const [history, setHistory] = useState<DecisionOverride[]>([])
 
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  // Override form state
   const [overrideAction, setOverrideAction] =
     useState<LeadDecision["recommended_action"]>("review")
   const [overrideReason, setOverrideReason] = useState("")
   const [saving, setSaving] = useState(false)
-  const [saveMsg, setSaveMsg] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
 
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  // ✅ FINAL effective decision logic (authoritative)
   const effectiveAction = useMemo(() => {
-  if (!lead) return "review"
+    if (!lead) return "review"
 
-  // If no override exists → system wins
-  if (!override) return lead.recommended_action
+    if (!latestOverride) {
+      return lead.recommended_action
+    }
 
-  // If override matches system → system wins
-  if (override.override_action === lead.recommended_action) {
-    return lead.recommended_action
-  }
+    if (latestOverride.override_action === lead.recommended_action) {
+      return lead.recommended_action
+    }
 
-  // Otherwise override wins
-  return override.override_action
-}, [override, lead])
+    return latestOverride.override_action
+  }, [lead, latestOverride])
 
   useEffect(() => {
     if (!leadId) {
@@ -71,7 +63,7 @@ export default function DecisionInner() {
     const fetchAll = async () => {
       setLoading(true)
 
-      // 1️⃣ Fetch decision
+      // 1️⃣ Fetch system decision
       const decisionRes = await supabase
         .from("leads_scored")
         .select("*")
@@ -84,32 +76,22 @@ export default function DecisionInner() {
         return
       }
 
-      setLead(decisionRes.data as LeadDecision)
+      setLead(decisionRes.data)
       setOverrideAction(decisionRes.data.recommended_action)
 
-      // 2️⃣ Fetch latest override
-      const overrideRes = await supabase
-        .from("decision_overrides")
-        .select("lead_id, override_action, override_reason, created_at")
-        .eq("lead_id", leadId)
-        .order("created_at", { ascending: false })
-        .limit(1)
-
-      if (!overrideRes.error && overrideRes.data?.length) {
-        setOverride(overrideRes.data[0] as DecisionOverride)
-      } else {
-        setOverride(null)
-      }
-
-      // 3️⃣ Fetch full history
+      // 2️⃣ Fetch override history
       const historyRes = await supabase
         .from("decision_overrides")
-        .select("id, lead_id, override_action, override_reason, created_at")
+        .select("*")
         .eq("lead_id", leadId)
         .order("created_at", { ascending: false })
 
-      if (!historyRes.error && historyRes.data) {
-        setHistory(historyRes.data as DecisionHistoryEvent[])
+      if (!historyRes.error && historyRes.data.length > 0) {
+        setLatestOverride(historyRes.data[0])
+        setHistory(historyRes.data)
+      } else {
+        setLatestOverride(null)
+        setHistory([])
       }
 
       setLoading(false)
@@ -118,17 +100,16 @@ export default function DecisionInner() {
     fetchAll()
   }, [leadId])
 
-  const submitOverride = async () => {
+  const saveOverride = async () => {
     if (!lead || !leadId) return
 
-    setSaving(true)
-    setSaveMsg(null)
-
     if (overrideReason.length > 280) {
-      setSaveMsg("Reason too long (max 280 characters).")
-      setSaving(false)
+      setMessage("Reason too long (max 280 characters).")
       return
     }
+
+    setSaving(true)
+    setMessage(null)
 
     const { error } = await supabase.from("decision_overrides").insert([
       {
@@ -139,25 +120,25 @@ export default function DecisionInner() {
     ])
 
     if (error) {
-      setSaveMsg(error.message)
+      setMessage(error.message)
       setSaving(false)
       return
     }
 
     setOverrideReason("")
-    setSaveMsg("Override saved.")
     setSaving(false)
+    setMessage("Override saved.")
 
-    // Refresh data
-    const { data } = await supabase
+    // Re-fetch history
+    const historyRes = await supabase
       .from("decision_overrides")
-      .select("id, lead_id, override_action, override_reason, created_at")
+      .select("*")
       .eq("lead_id", leadId)
       .order("created_at", { ascending: false })
 
-    if (data) {
-      setOverride(data[0] as DecisionOverride)
-      setHistory(data as DecisionHistoryEvent[])
+    if (!historyRes.error && historyRes.data.length > 0) {
+      setLatestOverride(historyRes.data[0])
+      setHistory(historyRes.data)
     }
   }
 
@@ -189,18 +170,20 @@ export default function DecisionInner() {
         <span className="text-sm text-gray-600">Score: {lead.score}</span>
       </div>
 
+      {/* ✅ Correct system / override truth */}
       <div className="text-sm text-gray-600 mb-6">
         <strong>System:</strong> {lead.recommended_action.toUpperCase()}
-        {override && (
+        {latestOverride &&
+        latestOverride.override_action !== lead.recommended_action ? (
           <>
             {" "}
             • <strong>Overridden:</strong>{" "}
-            {override.override_action.toUpperCase()}
+            {latestOverride.override_action.toUpperCase()}
           </>
-        )}
+        ) : null}
       </div>
 
-      {/* Override box */}
+      {/* Override controls */}
       <section className="mb-8 bg-white border rounded-xl p-5 shadow-sm">
         <h2 className="text-sm font-semibold mb-3">Override decision</h2>
 
@@ -209,7 +192,9 @@ export default function DecisionInner() {
             className="border rounded px-3 py-2 text-sm"
             value={overrideAction}
             onChange={(e) =>
-              setOverrideAction(e.target.value as LeadDecision["recommended_action"])
+              setOverrideAction(
+                e.target.value as LeadDecision["recommended_action"]
+              )
             }
           >
             <option value="pursue">Pursue</option>
@@ -219,14 +204,14 @@ export default function DecisionInner() {
           </select>
 
           <button
-            onClick={submitOverride}
+            onClick={saveOverride}
             disabled={saving}
-            className="px-4 py-2 rounded bg-black text-white text-sm"
+            className="px-4 py-2 rounded bg-black text-white text-sm disabled:opacity-60"
           >
             {saving ? "Saving…" : "Save override"}
           </button>
 
-          {saveMsg && <span className="text-sm text-gray-600">{saveMsg}</span>}
+          {message && <span className="text-sm text-gray-600">{message}</span>}
         </div>
 
         <textarea
