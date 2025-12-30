@@ -26,7 +26,8 @@ export default function DecisionInner() {
   const leadId = searchParams.get("lead_id")
 
   const [lead, setLead] = useState<LeadDecision | null>(null)
-  const [latestOverride, setLatestOverride] = useState<DecisionOverride | null>(null)
+  const [latestOverride, setLatestOverride] =
+    useState<DecisionOverride | null>(null)
   const [history, setHistory] = useState<DecisionOverride[]>([])
 
   const [overrideAction, setOverrideAction] =
@@ -129,7 +130,6 @@ export default function DecisionInner() {
     setSaving(false)
     setMessage("Override saved.")
 
-    // Re-fetch history
     const historyRes = await supabase
       .from("decision_overrides")
       .select("*")
@@ -139,6 +139,22 @@ export default function DecisionInner() {
     if (!historyRes.error && historyRes.data.length > 0) {
       setLatestOverride(historyRes.data[0])
       setHistory(historyRes.data)
+    }
+  }
+
+  // ✅ NEW — Outcome logging
+  const markOutcome = async (
+    outcome: "won" | "lost" | "no_response"
+  ) => {
+    if (!leadId) return
+
+    const { error } = await supabase.from("lead_outcomes").insert({
+      lead_id: leadId,
+      outcome,
+    })
+
+    if (error) {
+      console.error("Failed to save outcome", error)
     }
   }
 
@@ -159,7 +175,10 @@ export default function DecisionInner() {
 
   return (
     <main className="max-w-2xl mx-auto px-6 py-10">
-      <a href="/" className="text-sm text-gray-600 hover:underline mb-6 inline-block">
+      <a
+        href="/"
+        className="text-sm text-gray-600 hover:underline mb-6 inline-block"
+      >
         ← Back to feed
       </a>
 
@@ -170,7 +189,6 @@ export default function DecisionInner() {
         <span className="text-sm text-gray-600">Score: {lead.score}</span>
       </div>
 
-      {/* ✅ Correct system / override truth */}
       <div className="text-sm text-gray-600 mb-6">
         <strong>System:</strong> {lead.recommended_action.toUpperCase()}
         {latestOverride &&
@@ -224,6 +242,34 @@ export default function DecisionInner() {
 
         <div className="text-xs text-gray-500 mt-1">
           {overrideReason.length}/280
+        </div>
+      </section>
+
+      {/* ✅ NEW — Outcome section */}
+      <section className="mb-8 border-t pt-6">
+        <h2 className="text-sm font-semibold mb-3">Outcome</h2>
+
+        <div className="flex gap-3">
+          <button
+            onClick={() => markOutcome("won")}
+            className="px-3 py-1 rounded bg-green-600 text-white text-sm"
+          >
+            Mark Won
+          </button>
+
+          <button
+            onClick={() => markOutcome("lost")}
+            className="px-3 py-1 rounded bg-red-600 text-white text-sm"
+          >
+            Mark Lost
+          </button>
+
+          <button
+            onClick={() => markOutcome("no_response")}
+            className="px-3 py-1 rounded bg-gray-500 text-white text-sm"
+          >
+            No Response
+          </button>
         </div>
       </section>
 
