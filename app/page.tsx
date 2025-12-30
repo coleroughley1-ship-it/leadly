@@ -11,12 +11,13 @@ type LeadDecisionRow = {
   company_name: string
   score: number
 
-  // system fields
-  recommended_action: Action
+  // system decision (from leads_scored)
+  system_action: Action
+
   positive_reasons: string[]
   negative_reasons: string[]
 
-  // override-enhanced fields from the view
+  // override-enhanced fields (from leads_effective view)
   effective_action: Action
   latest_override_action: Action | null
   latest_override_reason: string | null
@@ -28,21 +29,14 @@ export default function Page() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // Filter + sort state
-  const [actionFilter, setActionFilter] = useState<
-    "all" | Action
-  >("all")
-
+  // Filters
+  const [actionFilter, setActionFilter] = useState<"all" | Action>("all")
   const [scoreFilter, setScoreFilter] = useState<
     "all" | "high" | "mid" | "low"
   >("all")
+  const [sortBy, setSortBy] = useState<"score_desc" | "score_asc">("score_desc")
 
-  const [sortBy, setSortBy] = useState<
-    "score_desc" | "score_asc"
-  >("score_desc")
-
-  // Logs (optional). If you want logging, keep it.
-  // NOTE: this logs the EFFECTIVE action (what the user actually sees).
+  // Optional logging of EFFECTIVE decisions (safe to remove if unused)
   const logDecisions = async (rows: LeadDecisionRow[]) => {
     if (!rows.length) return
 
@@ -52,7 +46,6 @@ export default function Page() {
       recommended_action: lead.effective_action,
     }))
 
-    // If your decision_logs RLS doesn’t allow insert, this will silently fail unless you inspect.
     await supabase.from("decision_logs").insert(payload)
   }
 
@@ -81,7 +74,7 @@ export default function Page() {
   const visibleLeads = useMemo(() => {
     return leads
       .filter((lead) => {
-        // FILTER BY EFFECTIVE action (what matters day-to-day)
+        // filter by EFFECTIVE action (operational truth)
         if (actionFilter !== "all" && lead.effective_action !== actionFilter) {
           return false
         }
@@ -118,7 +111,7 @@ export default function Page() {
         Leads loaded: {leads.length}
       </p>
 
-      {/* Filter controls */}
+      {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-6">
         <select
           className="border rounded px-3 py-2 text-sm"
@@ -161,7 +154,7 @@ export default function Page() {
         {visibleLeads.map((lead) => {
           const isOverridden =
             lead.latest_override_action &&
-            lead.latest_override_action !== lead.recommended_action
+            lead.latest_override_action !== lead.system_action
 
           return (
             <Link
@@ -181,17 +174,16 @@ export default function Page() {
                 </div>
 
                 <div className="mt-3 flex items-center gap-3">
-                  {/* Pill now shows the EFFECTIVE action */}
                   <ActionPill action={lead.effective_action} />
 
                   {isOverridden ? (
                     <span className="text-xs text-gray-600">
-                      System: {lead.recommended_action.toUpperCase()} • Overridden:{" "}
+                      System: {lead.system_action.toUpperCase()} • Overridden:{" "}
                       {lead.latest_override_action?.toUpperCase()}
                     </span>
                   ) : (
                     <span className="text-xs text-gray-500">
-                      System: {lead.recommended_action.toUpperCase()}
+                      System: {lead.system_action.toUpperCase()}
                     </span>
                   )}
                 </div>
