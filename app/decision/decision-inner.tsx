@@ -20,12 +20,21 @@ type DecisionOverride = {
   created_at: string
 }
 
+type DecisionHistoryEvent = {
+  id: string
+  lead_id: string
+  override_action: LeadDecision["recommended_action"]
+  override_reason: string | null
+  created_at: string
+}
+
 export default function DecisionInner() {
   const searchParams = useSearchParams()
   const leadId = searchParams.get("lead_id")
 
   const [lead, setLead] = useState<LeadDecision | null>(null)
   const [override, setOverride] = useState<DecisionOverride | null>(null)
+  const [history, setHistory] = useState<DecisionHistoryEvent[]>([])
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -48,10 +57,10 @@ export default function DecisionInner() {
       return
     }
 
-    const fetchDecisionAndOverride = async () => {
+    const fetchAll = async () => {
       setLoading(true)
 
-      // 1) Fetch the decision
+      // 1️⃣ Fetch decision
       const decisionRes = await supabase
         .from("leads_scored")
         .select("*")
@@ -65,11 +74,9 @@ export default function DecisionInner() {
       }
 
       setLead(decisionRes.data as LeadDecision)
+      setOverrideAction(decisionRes.data.recommended_action)
 
-      // Default the override dropdown to whatever the system recommended
-      setOverrideAction((decisionRes.data as LeadDecision).recommended_action)
-
-      // 2) Fetch the latest override (if any)
+      // 2️⃣ Fetch latest override
       const overrideRes = await supabase
         .from("decision_overrides")
         .select("lead_id, override_action, override_reason, created_at")
@@ -77,16 +84,27 @@ export default function DecisionInner() {
         .order("created_at", { ascending: false })
         .limit(1)
 
-      if (!overrideRes.error && overrideRes.data && overrideRes.data.length > 0) {
+      if (!overrideRes.error && overrideRes.data?.length) {
         setOverride(overrideRes.data[0] as DecisionOverride)
       } else {
         setOverride(null)
       }
 
+      // 3️⃣ Fetch full history
+      const historyRes = await supabase
+        .from("decision_overrides")
+        .select("id, lead_id, override_action, override_reason, created_at")
+        .eq("lead_id", leadId)
+        .order("created_at", { ascending: false })
+
+      if (!historyRes.error && historyRes.data) {
+        setHistory(historyRes.data as DecisionHistoryEvent[])
+      }
+
       setLoading(false)
     }
 
-    fetchDecisionAndOverride()
+    fetchAll()
   }, [leadId])
 
   const submitOverride = async () => {
@@ -95,10 +113,9 @@ export default function DecisionInner() {
     setSaving(true)
     setSaveMsg(null)
 
-    const reasonClean = overrideReason.trim()
-    if (reasonClean.length > 280) {
+    if (overrideReason.length > 280) {
+      setSaveMsg("Reason too long (max 280 characters).")
       setSaving(false)
-      setSaveMsg("Reason is too long (max 280 characters).")
       return
     }
 
@@ -106,31 +123,31 @@ export default function DecisionInner() {
       {
         lead_id: leadId,
         override_action: overrideAction,
-        override_reason: reasonClean || null,
+        override_reason: overrideReason.trim() || null,
       },
     ])
 
     if (error) {
-      setSaving(false)
       setSaveMsg(error.message)
+      setSaving(false)
       return
     }
 
-    // Re-fetch latest override so UI stays truthful
-    const overrideRes = await supabase
+    setOverrideReason("")
+    setSaveMsg("Override saved.")
+    setSaving(false)
+
+    // Refresh data
+    const { data } = await supabase
       .from("decision_overrides")
-      .select("lead_id, override_action, override_reason, created_at")
+      .select("id, lead_id, override_action, override_reason, created_at")
       .eq("lead_id", leadId)
       .order("created_at", { ascending: false })
-      .limit(1)
 
-    if (!overrideRes.error && overrideRes.data?.length) {
-      setOverride(overrideRes.data[0] as DecisionOverride)
+    if (data) {
+      setOverride(data[0] as DecisionOverride)
+      setHistory(data as DecisionHistoryEvent[])
     }
-
-    setOverrideReason("")
-    setSaving(false)
-    setSaveMsg("Override saved.")
   }
 
   if (loading) {
@@ -150,11 +167,9 @@ export default function DecisionInner() {
 
   return (
     <main className="max-w-2xl mx-auto px-6 py-10">
-      <div className="mb-6">
-        <a href="/" className="text-sm text-gray-600 hover:underline">
-          ← Back to feed
-        </a>
-      </div>
+      <a href="/" className="text-sm text-gray-600 hover:underline mb-6 inline-block">
+        ← Back to feed
+      </a>
 
       <h1 className="text-2xl font-semibold mb-1">{lead.company_name}</h1>
 
@@ -163,27 +178,22 @@ export default function DecisionInner() {
         <span className="text-sm text-gray-600">Score: {lead.score}</span>
       </div>
 
-      {/* System vs override context */}
       <div className="text-sm text-gray-600 mb-6">
-        <span className="font-medium text-gray-700">System:</span>{" "}
-        {lead.recommended_action.toUpperCase()}
-        {override ? (
+        <strong>System:</strong> {lead.recommended_action.toUpperCase()}
+        {override && (
           <>
             {" "}
-            <span className="mx-2">•</span>
-            <span className="font-medium text-gray-700">Overridden:</span>{" "}
-            {override.override_action.toUpperCase()}{" "}
-            <span className="text-gray-500">
-              ({new Date(override.created_at).toLocaleString()})
-            </span>
+            • <strong>Overridden:</strong>{" "}
+            {override.override_action.toUpperCase()}
           </>
-        ) : null}
+        )}
       </div>
 
+      {/* Override box */}
       <section className="mb-8 bg-white border rounded-xl p-5 shadow-sm">
         <h2 className="text-sm font-semibold mb-3">Override decision</h2>
 
-        <div className="flex flex-wrap gap-3 items-center">
+        <div className="flex gap-3 items-center mb-3">
           <select
             className="border rounded px-3 py-2 text-sm"
             value={overrideAction}
@@ -200,37 +210,55 @@ export default function DecisionInner() {
           <button
             onClick={submitOverride}
             disabled={saving}
-            className="px-4 py-2 rounded bg-black text-white text-sm disabled:opacity-60"
+            className="px-4 py-2 rounded bg-black text-white text-sm"
           >
             {saving ? "Saving…" : "Save override"}
           </button>
 
-          {saveMsg ? (
-            <span className="text-sm text-gray-600">{saveMsg}</span>
-          ) : null}
+          {saveMsg && <span className="text-sm text-gray-600">{saveMsg}</span>}
         </div>
 
-        <div className="mt-3">
-          <textarea
-            className="w-full border rounded p-3 text-sm"
-            placeholder="Reason (optional). Keep it short."
-            value={overrideReason}
-            onChange={(e) => setOverrideReason(e.target.value)}
-            rows={3}
-          />
-          <div className="mt-1 text-xs text-gray-500">
-            {overrideReason.trim().length}/280
-          </div>
-        </div>
+        <textarea
+          className="w-full border rounded p-3 text-sm"
+          placeholder="Reason (optional)"
+          value={overrideReason}
+          onChange={(e) => setOverrideReason(e.target.value)}
+          rows={3}
+        />
 
-        {override?.override_reason ? (
-          <div className="mt-4 text-sm text-gray-700">
-            <span className="font-medium">Latest reason:</span>{" "}
-            {override.override_reason}
-          </div>
-        ) : null}
+        <div className="text-xs text-gray-500 mt-1">
+          {overrideReason.length}/280
+        </div>
       </section>
 
+      {/* Decision history */}
+      <section className="mb-8">
+        <h2 className="text-sm font-semibold mb-3">Decision history</h2>
+
+        {history.length === 0 ? (
+          <p className="text-sm text-gray-500">No overrides yet.</p>
+        ) : (
+          <ul className="space-y-3">
+            {history.map((event) => (
+              <li key={event.id} className="border rounded-lg p-4 text-sm">
+                <div className="flex justify-between mb-1">
+                  <span className="font-medium">
+                    Override → {event.override_action.toUpperCase()}
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    {new Date(event.created_at).toLocaleString()}
+                  </span>
+                </div>
+                {event.override_reason && (
+                  <p className="text-gray-600">“{event.override_reason}”</p>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {/* Reasons */}
       <section className="mb-6">
         <h2 className="text-sm font-medium mb-2">Why this decision</h2>
         <ul className="space-y-1 text-sm">
