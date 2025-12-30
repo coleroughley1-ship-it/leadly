@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react"
 import { supabase } from "@/lib/supabase"
 
 type Action = "pursue" | "review" | "deprioritise" | "kill"
+type OutcomeStatus = "won" | "lost" | "pending"
 
 type LeadDecisionRow = {
   lead_id: string
@@ -22,6 +23,10 @@ type LeadDecisionRow = {
   latest_override_action: Action | null
   latest_override_reason: string | null
   latest_override_created_at: string | null
+
+  // ✅ NEW — outcome fields (from leads_effective view)
+  latest_outcome: "won" | "lost" | "no_response" | null
+  outcome_status: OutcomeStatus
 }
 
 export default function Page() {
@@ -36,7 +41,7 @@ export default function Page() {
   >("all")
   const [sortBy, setSortBy] = useState<"score_desc" | "score_asc">("score_desc")
 
-  // Optional logging of EFFECTIVE decisions (safe to remove if unused)
+  // Optional logging of EFFECTIVE decisions
   const logDecisions = async (rows: LeadDecisionRow[]) => {
     if (!rows.length) return
 
@@ -74,7 +79,6 @@ export default function Page() {
   const visibleLeads = useMemo(() => {
     return leads
       .filter((lead) => {
-        // filter by EFFECTIVE action (operational truth)
         if (actionFilter !== "all" && lead.effective_action !== actionFilter) {
           return false
         }
@@ -175,6 +179,7 @@ export default function Page() {
 
                 <div className="mt-3 flex items-center gap-3">
                   <ActionPill action={lead.effective_action} />
+                  <OutcomePill status={lead.outcome_status} />
 
                   {isOverridden ? (
                     <span className="text-xs text-gray-600">
@@ -233,6 +238,23 @@ function ActionPill({ action }: { action: Action }) {
       className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${styles[action]}`}
     >
       {action.toUpperCase()}
+    </span>
+  )
+}
+
+// ✅ NEW — Outcome pill (additive, no behaviour change)
+function OutcomePill({ status }: { status: OutcomeStatus }) {
+  const styles: Record<OutcomeStatus, string> = {
+    won: "bg-green-100 text-green-800",
+    lost: "bg-red-100 text-red-800",
+    pending: "bg-gray-100 text-gray-600",
+  }
+
+  return (
+    <span
+      className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${styles[status]}`}
+    >
+      {status.toUpperCase()}
     </span>
   )
 }
