@@ -21,13 +21,22 @@ type DecisionOverride = {
   created_at: string
 }
 
+type LeadOutcome = {
+  id: string
+  lead_id: string
+  outcome: "won" | "lost" | "no_response"
+  decided_at: string
+}
+
 export default function DecisionInner() {
   const searchParams = useSearchParams()
   const leadId = searchParams.get("lead_id")
 
   const [lead, setLead] = useState<LeadDecision | null>(null)
-  const [latestOverride, setLatestOverride] = useState<DecisionOverride | null>(null)
+  const [latestOverride, setLatestOverride] =
+    useState<DecisionOverride | null>(null)
   const [history, setHistory] = useState<DecisionOverride[]>([])
+  const [latestOutcome, setLatestOutcome] = useState<LeadOutcome | null>(null)
 
   const [overrideAction, setOverrideAction] =
     useState<LeadDecision["recommended_action"]>("review")
@@ -88,6 +97,20 @@ export default function DecisionInner() {
         setHistory([])
       }
 
+      // 3️⃣ Fetch latest outcome
+      const outcomeRes = await supabase
+        .from("lead_outcomes")
+        .select("*")
+        .eq("lead_id", leadId)
+        .order("decided_at", { ascending: false })
+        .limit(1)
+
+      if (!outcomeRes.error && outcomeRes.data.length > 0) {
+        setLatestOutcome(outcomeRes.data[0])
+      } else {
+        setLatestOutcome(null)
+      }
+
       setLoading(false)
     }
 
@@ -135,7 +158,7 @@ export default function DecisionInner() {
     }
   }
 
-  // ✅ Outcome logging (append-only)
+  // ✅ Outcome logging
   const markOutcome = async (
     outcome: "won" | "lost" | "no_response"
   ) => {
@@ -146,8 +169,13 @@ export default function DecisionInner() {
       outcome,
     })
 
-    if (error) {
-      console.error("Failed to save outcome", error)
+    if (!error) {
+      setLatestOutcome({
+        id: crypto.randomUUID(),
+        lead_id: leadId,
+        outcome,
+        decided_at: new Date().toISOString(),
+      })
     }
   }
 
@@ -181,6 +209,13 @@ export default function DecisionInner() {
         <ActionPill action={effectiveAction} />
         <span className="text-sm text-gray-600">Score: {lead.score}</span>
       </div>
+
+      {/* ✅ Latest outcome display */}
+      {latestOutcome && (
+        <div className="text-sm font-medium mb-4">
+          Outcome: <span className="uppercase">{latestOutcome.outcome}</span>
+        </div>
+      )}
 
       <div className="text-sm text-gray-600 mb-6">
         <strong>System:</strong> {lead.recommended_action.toUpperCase()}
@@ -239,31 +274,34 @@ export default function DecisionInner() {
         </div>
       </section>
 
-      {/* ✅ Outcome section */}
+      {/* Outcome controls */}
       <section className="mb-8 border-t pt-6">
         <h2 className="text-sm font-semibold mb-3">Outcome</h2>
 
         <div className="flex gap-3">
           <button
             type="button"
+            disabled={!!latestOutcome}
             onClick={() => markOutcome("won")}
-            className="px-3 py-1 rounded bg-green-600 text-white text-sm pointer-events-auto cursor-pointer"
+            className="px-3 py-1 rounded bg-green-600 text-white text-sm disabled:opacity-40 cursor-pointer"
           >
             Mark Won
           </button>
 
           <button
             type="button"
+            disabled={!!latestOutcome}
             onClick={() => markOutcome("lost")}
-            className="px-3 py-1 rounded bg-red-600 text-white text-sm pointer-events-auto cursor-pointer"
+            className="px-3 py-1 rounded bg-red-600 text-white text-sm disabled:opacity-40 cursor-pointer"
           >
             Mark Lost
           </button>
 
           <button
             type="button"
+            disabled={!!latestOutcome}
             onClick={() => markOutcome("no_response")}
-            className="px-3 py-1 rounded bg-gray-500 text-white text-sm pointer-events-auto cursor-pointer"
+            className="px-3 py-1 rounded bg-gray-500 text-white text-sm disabled:opacity-40 cursor-pointer"
           >
             No Response
           </button>
