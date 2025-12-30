@@ -12,19 +12,19 @@ type LeadDecisionRow = {
   company_name: string
   score: number
 
-  // ✅ system decision (from leads_effective / leads_scored)
+  // system decision
   recommended_action: Action
 
   positive_reasons: string[]
   negative_reasons: string[]
 
-  // override-enhanced fields
+  // override layer
   effective_action: Action
   latest_override_action: Action | null
   latest_override_reason: string | null
   latest_override_created_at: string | null
 
-  // outcome fields
+  // outcome layer
   latest_outcome: "won" | "lost" | "no_response" | null
   outcome_status: OutcomeStatus
 }
@@ -40,6 +40,11 @@ export default function Page() {
     "all" | "high" | "mid" | "low"
   >("all")
   const [sortBy, setSortBy] = useState<"score_desc" | "score_asc">("score_desc")
+
+  // ✅ NEW — outcome filter
+  const [outcomeFilter, setOutcomeFilter] = useState<
+    "all" | "won" | "lost" | "pending"
+  >("all")
 
   // Optional logging of EFFECTIVE decisions
   const logDecisions = async (rows: LeadDecisionRow[]) => {
@@ -79,10 +84,20 @@ export default function Page() {
   const visibleLeads = useMemo(() => {
     return leads
       .filter((lead) => {
+        // action filter
         if (actionFilter !== "all" && lead.effective_action !== actionFilter) {
           return false
         }
 
+        // ✅ outcome filter
+        if (
+          outcomeFilter !== "all" &&
+          lead.outcome_status !== outcomeFilter
+        ) {
+          return false
+        }
+
+        // score filters
         if (scoreFilter === "high" && lead.score < 80) return false
         if (scoreFilter === "mid" && (lead.score < 60 || lead.score >= 80))
           return false
@@ -95,7 +110,7 @@ export default function Page() {
         if (sortBy === "score_asc") return a.score - b.score
         return 0
       })
-  }, [leads, actionFilter, scoreFilter, sortBy])
+  }, [leads, actionFilter, outcomeFilter, scoreFilter, sortBy])
 
   if (error) {
     return (
@@ -147,6 +162,18 @@ export default function Page() {
         >
           <option value="score_desc">Highest score</option>
           <option value="score_asc">Lowest score</option>
+        </select>
+
+        {/* ✅ NEW — outcome filter */}
+        <select
+          className="border rounded px-3 py-2 text-sm"
+          value={outcomeFilter}
+          onChange={(e) => setOutcomeFilter(e.target.value as any)}
+        >
+          <option value="all">All outcomes</option>
+          <option value="pending">Pending</option>
+          <option value="won">Won</option>
+          <option value="lost">Lost</option>
         </select>
       </div>
 
