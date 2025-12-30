@@ -12,19 +12,19 @@ type LeadDecisionRow = {
   company_name: string
   score: number
 
-  // system decision (from leads_scored)
-  system_action: Action
+  // ✅ system decision (from leads_effective / leads_scored)
+  recommended_action: Action
 
   positive_reasons: string[]
   negative_reasons: string[]
 
-  // override-enhanced fields (from leads_effective view)
+  // override-enhanced fields
   effective_action: Action
   latest_override_action: Action | null
   latest_override_reason: string | null
   latest_override_created_at: string | null
 
-  // ✅ NEW — outcome fields (from leads_effective view)
+  // outcome fields
   latest_outcome: "won" | "lost" | "no_response" | null
   outcome_status: OutcomeStatus
 }
@@ -158,7 +158,7 @@ export default function Page() {
         {visibleLeads.map((lead) => {
           const isOverridden =
             lead.latest_override_action &&
-            lead.latest_override_action !== lead.system_action
+            lead.latest_override_action !== lead.recommended_action
 
           return (
             <Link
@@ -183,12 +183,12 @@ export default function Page() {
 
                   {isOverridden ? (
                     <span className="text-xs text-gray-600">
-                      System: {lead.system_action.toUpperCase()} • Overridden:{" "}
+                      System: {lead.recommended_action.toUpperCase()} • Overridden:{" "}
                       {lead.latest_override_action?.toUpperCase()}
                     </span>
                   ) : (
                     <span className="text-xs text-gray-500">
-                      System: {lead.system_action.toUpperCase()}
+                      System: {lead.recommended_action.toUpperCase()}
                     </span>
                   )}
                 </div>
@@ -242,7 +242,6 @@ function ActionPill({ action }: { action: Action }) {
   )
 }
 
-// ✅ NEW — Outcome pill (additive, no behaviour change)
 function OutcomePill({ status }: { status: OutcomeStatus }) {
   const styles: Record<OutcomeStatus, string> = {
     won: "bg-green-100 text-green-800",
