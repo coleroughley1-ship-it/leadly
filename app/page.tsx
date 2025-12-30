@@ -41,10 +41,10 @@ export default function Page() {
   >("all")
   const [sortBy, setSortBy] = useState<"score_desc" | "score_asc">("score_desc")
 
-  // Outcome filter
+  // ✅ DEFAULT TO PENDING
   const [outcomeFilter, setOutcomeFilter] = useState<
     "all" | "won" | "lost" | "pending"
-  >("all")
+  >("pending")
 
   // Optional logging of EFFECTIVE decisions
   const logDecisions = async (rows: LeadDecisionRow[]) => {
@@ -81,7 +81,7 @@ export default function Page() {
     fetchLeads()
   }, [])
 
-  // ✅ Outcome counts (including ALL)
+  // Outcome counts (ALL + statuses)
   const outcomeCounts = useMemo(() => {
     return {
       all: leads.length,
@@ -94,12 +94,10 @@ export default function Page() {
   const visibleLeads = useMemo(() => {
     return leads
       .filter((lead) => {
-        // action filter
         if (actionFilter !== "all" && lead.effective_action !== actionFilter) {
           return false
         }
 
-        // outcome filter
         if (
           outcomeFilter !== "all" &&
           lead.outcome_status !== outcomeFilter
@@ -107,7 +105,6 @@ export default function Page() {
           return false
         }
 
-        // score filters
         if (scoreFilter === "high" && lead.score < 80) return false
         if (scoreFilter === "mid" && (lead.score < 60 || lead.score >= 80))
           return false
@@ -137,7 +134,7 @@ export default function Page() {
     <main className="max-w-3xl mx-auto px-6 py-10 bg-gray-50 min-h-screen">
       <h1 className="text-2xl font-semibold mb-2">Leadly — Decision Feed</h1>
 
-      {/* ✅ COUNTS BAR (ALL + OUTCOMES) */}
+      {/* COUNTS BAR */}
       <div className="flex gap-4 text-sm mb-6">
         <button
           onClick={() => setOutcomeFilter("all")}
@@ -145,21 +142,18 @@ export default function Page() {
         >
           All ({outcomeCounts.all})
         </button>
-
         <button
           onClick={() => setOutcomeFilter("pending")}
           className="text-gray-700 hover:underline"
         >
           Pending ({outcomeCounts.pending})
         </button>
-
         <button
           onClick={() => setOutcomeFilter("won")}
           className="text-green-700 hover:underline"
         >
           Won ({outcomeCounts.won})
         </button>
-
         <button
           onClick={() => setOutcomeFilter("lost")}
           className="text-red-700 hover:underline"
