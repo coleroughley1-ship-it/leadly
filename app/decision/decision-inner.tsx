@@ -47,8 +47,19 @@ export default function DecisionInner() {
   const [saveMsg, setSaveMsg] = useState<string | null>(null)
 
   const effectiveAction = useMemo(() => {
-    return override?.override_action ?? lead?.recommended_action ?? "review"
-  }, [override, lead])
+  if (!lead) return "review"
+
+  // If no override exists → system wins
+  if (!override) return lead.recommended_action
+
+  // If override matches system → system wins
+  if (override.override_action === lead.recommended_action) {
+    return lead.recommended_action
+  }
+
+  // Otherwise override wins
+  return override.override_action
+}, [override, lead])
 
   useEffect(() => {
     if (!leadId) {
