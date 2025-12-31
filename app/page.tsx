@@ -41,12 +41,12 @@ export default function Page() {
   >("all")
   const [sortBy, setSortBy] = useState<"score_desc" | "score_asc">("score_desc")
 
-  // ✅ DEFAULT TO PENDING
+  // DEFAULT EXECUTION MODE
   const [outcomeFilter, setOutcomeFilter] = useState<
     "all" | "won" | "lost" | "pending"
   >("pending")
 
-  // Optional logging of EFFECTIVE decisions
+  // Optional logging of EFFECTIVE decisions (unchanged)
   const logDecisions = async (rows: LeadDecisionRow[]) => {
     if (!rows.length) return
 
@@ -136,28 +136,16 @@ export default function Page() {
 
       {/* COUNTS BAR */}
       <div className="flex gap-4 text-sm mb-6">
-        <button
-          onClick={() => setOutcomeFilter("all")}
-          className="text-gray-800 hover:underline"
-        >
+        <button onClick={() => setOutcomeFilter("all")}>
           All ({outcomeCounts.all})
         </button>
-        <button
-          onClick={() => setOutcomeFilter("pending")}
-          className="text-gray-700 hover:underline"
-        >
+        <button onClick={() => setOutcomeFilter("pending")}>
           Pending ({outcomeCounts.pending})
         </button>
-        <button
-          onClick={() => setOutcomeFilter("won")}
-          className="text-green-700 hover:underline"
-        >
+        <button onClick={() => setOutcomeFilter("won")}>
           Won ({outcomeCounts.won})
         </button>
-        <button
-          onClick={() => setOutcomeFilter("lost")}
-          className="text-red-700 hover:underline"
-        >
+        <button onClick={() => setOutcomeFilter("lost")}>
           Lost ({outcomeCounts.lost})
         </button>
       </div>
@@ -222,6 +210,10 @@ export default function Page() {
             lead.latest_override_action &&
             lead.latest_override_action !== lead.recommended_action
 
+          const recencyText = lead.latest_override_created_at
+            ? formatTimeAgo(lead.latest_override_created_at)
+            : null
+
           return (
             <Link
               key={lead.lead_id}
@@ -255,6 +247,14 @@ export default function Page() {
                   )}
                 </div>
 
+                {recencyText && (
+                  <p className="text-xs text-gray-500 mt-2">
+                    {lead.outcome_status === "pending"
+                      ? `Waiting ${recencyText}`
+                      : `${lead.outcome_status.toUpperCase()} ${recencyText}`}
+                  </p>
+                )}
+
                 <div className="mt-5">
                   <p className="text-sm font-medium mb-2">Why this decision</p>
 
@@ -285,6 +285,17 @@ export default function Page() {
       </div>
     </main>
   )
+}
+
+function formatTimeAgo(dateString: string) {
+  const diffMs = Date.now() - new Date(dateString).getTime()
+  const diffMins = Math.floor(diffMs / 60000)
+  const diffHours = Math.floor(diffMins / 60)
+  const diffDays = Math.floor(diffHours / 24)
+
+  if (diffMins < 60) return `${diffMins}m ago`
+  if (diffHours < 24) return `${diffHours}h ago`
+  return `${diffDays}d ago`
 }
 
 function ActionPill({ action }: { action: Action }) {
