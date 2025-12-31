@@ -39,14 +39,18 @@ export default function Page() {
   const [scoreFilter, setScoreFilter] = useState<
     "all" | "high" | "mid" | "low"
   >("all")
-  const [sortBy, setSortBy] = useState<"score_desc" | "score_asc">("score_desc")
 
-  // DEFAULT EXECUTION MODE
+  // Sorting
+  const [scoreSort, setScoreSort] = useState<"score_desc" | "score_asc">(
+    "score_desc"
+  )
+  const [timeSort, setTimeSort] = useState<"latest" | "oldest">("latest")
+
+  // Default execution mode
   const [outcomeFilter, setOutcomeFilter] = useState<
     "all" | "won" | "lost" | "pending"
   >("pending")
 
-  // Optional logging of EFFECTIVE decisions (unchanged)
   const logDecisions = async (rows: LeadDecisionRow[]) => {
     if (!rows.length) return
 
@@ -81,7 +85,7 @@ export default function Page() {
     fetchLeads()
   }, [])
 
-  // Outcome counts (ALL + statuses)
+  // Outcome counts
   const outcomeCounts = useMemo(() => {
     return {
       all: leads.length,
@@ -94,16 +98,14 @@ export default function Page() {
   const visibleLeads = useMemo(() => {
     return leads
       .filter((lead) => {
-        if (actionFilter !== "all" && lead.effective_action !== actionFilter) {
+        if (actionFilter !== "all" && lead.effective_action !== actionFilter)
           return false
-        }
 
         if (
           outcomeFilter !== "all" &&
           lead.outcome_status !== outcomeFilter
-        ) {
+        )
           return false
-        }
 
         if (scoreFilter === "high" && lead.score < 80) return false
         if (scoreFilter === "mid" && (lead.score < 60 || lead.score >= 80))
@@ -113,11 +115,33 @@ export default function Page() {
         return true
       })
       .sort((a, b) => {
-        if (sortBy === "score_desc") return b.score - a.score
-        if (sortBy === "score_asc") return a.score - b.score
+        // Time-based sorting (primary)
+        if (timeSort === "latest" || timeSort === "oldest") {
+          const aTime = a.latest_override_created_at
+            ? new Date(a.latest_override_created_at).getTime()
+            : 0
+          const bTime = b.latest_override_created_at
+            ? new Date(b.latest_override_created_at).getTime()
+            : 0
+
+          if (aTime !== bTime) {
+            return timeSort === "latest" ? bTime - aTime : aTime - bTime
+          }
+        }
+
+        // Score-based sorting (secondary)
+        if (scoreSort === "score_desc") return b.score - a.score
+        if (scoreSort === "score_asc") return a.score - b.score
         return 0
       })
-  }, [leads, actionFilter, outcomeFilter, scoreFilter, sortBy])
+  }, [
+    leads,
+    actionFilter,
+    outcomeFilter,
+    scoreFilter,
+    scoreSort,
+    timeSort,
+  ])
 
   if (error) {
     return (
@@ -136,28 +160,26 @@ export default function Page() {
 
       {/* COUNTS BAR */}
       <div className="flex gap-4 text-sm mb-6">
-        <button onClick={() => setOutcomeFilter("all")}>
-          All ({outcomeCounts.all})
-        </button>
-        <button onClick={() => setOutcomeFilter("pending")}>
-          Pending ({outcomeCounts.pending})
-        </button>
-        <button onClick={() => setOutcomeFilter("won")}>
-          Won ({outcomeCounts.won})
-        </button>
-        <button onClick={() => setOutcomeFilter("lost")}>
-          Lost ({outcomeCounts.lost})
-        </button>
+        {[
+          ["all", outcomeCounts.all],
+          ["pending", outcomeCounts.pending],
+          ["won", outcomeCounts.won],
+          ["lost", outcomeCounts.lost],
+        ].map(([key, count]) => (
+          <button
+            key={key}
+            onClick={() => setOutcomeFilter(key as any)}
+            className="cursor-pointer hover:underline"
+          >
+            {key.charAt(0).toUpperCase() + key.slice(1)} ({count})
+          </button>
+        ))}
       </div>
 
-      <p className="text-sm text-gray-600 mb-6">
-        Leads loaded: {leads.length}
-      </p>
-
-      {/* Filters */}
+      {/* FILTERS */}
       <div className="flex flex-wrap gap-3 mb-6">
         <select
-          className="border rounded px-3 py-2 text-sm"
+          className="border rounded px-3 py-2 text-sm cursor-pointer"
           value={actionFilter}
           onChange={(e) => setActionFilter(e.target.value as any)}
         >
@@ -169,7 +191,7 @@ export default function Page() {
         </select>
 
         <select
-          className="border rounded px-3 py-2 text-sm"
+          className="border rounded px-3 py-2 text-sm cursor-pointer"
           value={scoreFilter}
           onChange={(e) => setScoreFilter(e.target.value as any)}
         >
@@ -180,16 +202,25 @@ export default function Page() {
         </select>
 
         <select
-          className="border rounded px-3 py-2 text-sm"
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value as any)}
+          className="border rounded px-3 py-2 text-sm cursor-pointer"
+          value={scoreSort}
+          onChange={(e) => setScoreSort(e.target.value as any)}
         >
           <option value="score_desc">Highest score</option>
           <option value="score_asc">Lowest score</option>
         </select>
 
         <select
-          className="border rounded px-3 py-2 text-sm"
+          className="border rounded px-3 py-2 text-sm cursor-pointer"
+          value={timeSort}
+          onChange={(e) => setTimeSort(e.target.value as any)}
+        >
+          <option value="latest">Latest activity</option>
+          <option value="oldest">Oldest activity</option>
+        </select>
+
+        <select
+          className="border rounded px-3 py-2 text-sm cursor-pointer"
           value={outcomeFilter}
           onChange={(e) => setOutcomeFilter(e.target.value as any)}
         >
@@ -218,7 +249,7 @@ export default function Page() {
             <Link
               key={lead.lead_id}
               href={`/decision?lead_id=${lead.lead_id}`}
-              className="block"
+              className="block cursor-pointer"
             >
               <div className="bg-white border rounded-xl p-6 shadow-sm hover:shadow transition">
                 <div className="flex items-start justify-between gap-4">
@@ -257,7 +288,6 @@ export default function Page() {
 
                 <div className="mt-5">
                   <p className="text-sm font-medium mb-2">Why this decision</p>
-
                   <ul className="space-y-1 text-sm text-gray-800">
                     {lead.positive_reasons?.slice(0, 3).map((r, i) => (
                       <li key={i}>• {r}</li>
@@ -270,7 +300,6 @@ export default function Page() {
                     <summary className="text-sm text-gray-600 cursor-pointer">
                       Risks
                     </summary>
-
                     <ul className="mt-2 space-y-1 text-sm text-gray-600">
                       {lead.negative_reasons.map((r, i) => (
                         <li key={i}>• {r}</li>
