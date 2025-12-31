@@ -36,9 +36,9 @@ export default function Page() {
 
   // Filters
   const [actionFilter, setActionFilter] = useState<"all" | Action>("all")
-  const [scoreFilter, setScoreFilter] = useState<
-    "all" | "high" | "mid" | "low"
-  >("all")
+  const [scoreFilter, setScoreFilter] = useState<"all" | "high" | "mid" | "low">(
+    "all"
+  )
 
   // Sorting
   const [scoreSort, setScoreSort] = useState<"score_desc" | "score_asc">(
@@ -51,6 +51,7 @@ export default function Page() {
     "all" | "won" | "lost" | "pending"
   >("pending")
 
+  // Optional logging of EFFECTIVE decisions (kept)
   const logDecisions = async (rows: LeadDecisionRow[]) => {
     if (!rows.length) return
 
@@ -60,19 +61,22 @@ export default function Page() {
       recommended_action: lead.effective_action,
     }))
 
-    await supabase.from("decision_logs").insert(payload)
+    // Keep silent if table/RLS not ready; don’t crash UI
+    const res = await supabase.from("decision_logs").insert(payload)
+    if (res.error) {
+      console.warn("decision_logs insert failed:", res.error.message)
+    }
   }
 
   useEffect(() => {
     const fetchLeads = async () => {
       setLoading(true)
 
-      const { data, error } = await supabase
-        .from("leads_effective")
-        .select("*")
+      const { data, error } = await supabase.from("leads_effective").select("*")
 
       if (error) {
         setError(error.message)
+        setLeads([])
       } else {
         const rows = (data || []) as LeadDecisionRow[]
         setLeads(rows)
@@ -85,7 +89,7 @@ export default function Page() {
     fetchLeads()
   }, [])
 
-  // Outcome counts
+  // Outcome counts (kept)
   const outcomeCounts = useMemo(() => {
     return {
       all: leads.length,
@@ -98,14 +102,13 @@ export default function Page() {
   const visibleLeads = useMemo(() => {
     return leads
       .filter((lead) => {
-        if (actionFilter !== "all" && lead.effective_action !== actionFilter)
+        if (actionFilter !== "all" && lead.effective_action !== actionFilter) {
           return false
+        }
 
-        if (
-          outcomeFilter !== "all" &&
-          lead.outcome_status !== outcomeFilter
-        )
+        if (outcomeFilter !== "all" && lead.outcome_status !== outcomeFilter) {
           return false
+        }
 
         if (scoreFilter === "high" && lead.score < 80) return false
         if (scoreFilter === "mid" && (lead.score < 60 || lead.score >= 80))
@@ -116,17 +119,15 @@ export default function Page() {
       })
       .sort((a, b) => {
         // Time-based sorting (primary)
-        if (timeSort === "latest" || timeSort === "oldest") {
-          const aTime = a.latest_override_created_at
-            ? new Date(a.latest_override_created_at).getTime()
-            : 0
-          const bTime = b.latest_override_created_at
-            ? new Date(b.latest_override_created_at).getTime()
-            : 0
+        const aTime = a.latest_override_created_at
+          ? new Date(a.latest_override_created_at).getTime()
+          : 0
+        const bTime = b.latest_override_created_at
+          ? new Date(b.latest_override_created_at).getTime()
+          : 0
 
-          if (aTime !== bTime) {
-            return timeSort === "latest" ? bTime - aTime : aTime - bTime
-          }
+        if (aTime !== bTime) {
+          return timeSort === "latest" ? bTime - aTime : aTime - bTime
         }
 
         // Score-based sorting (secondary)
@@ -134,14 +135,7 @@ export default function Page() {
         if (scoreSort === "score_asc") return a.score - b.score
         return 0
       })
-  }, [
-    leads,
-    actionFilter,
-    outcomeFilter,
-    scoreFilter,
-    scoreSort,
-    timeSort,
-  ])
+  }, [leads, actionFilter, outcomeFilter, scoreFilter, scoreSort, timeSort])
 
   if (error) {
     return (
@@ -149,7 +143,7 @@ export default function Page() {
         <h1 className="text-xl font-semibold mb-4 text-red-600">
           Leadly — Error
         </h1>
-        <pre className="text-sm">{error}</pre>
+        <pre className="text-sm whitespace-pre-wrap">{error}</pre>
       </main>
     )
   }
@@ -158,25 +152,34 @@ export default function Page() {
     <main className="max-w-3xl mx-auto px-6 py-10 bg-gray-50 min-h-screen">
       <h1 className="text-2xl font-semibold mb-2">Leadly — Decision Feed</h1>
 
-      {/* COUNTS BAR */}
+      {/* COUNTS BAR (clickable + cursor) */}
       <div className="flex gap-4 text-sm mb-6">
         {[
           ["all", outcomeCounts.all],
           ["pending", outcomeCounts.pending],
           ["won", outcomeCounts.won],
           ["lost", outcomeCounts.lost],
-        ].map(([key, count]) => (
-          <button
-            key={key}
-            onClick={() => setOutcomeFilter(key as any)}
-            className="cursor-pointer hover:underline"
-          >
-            {key.charAt(0).toUpperCase() + key.slice(1)} ({count})
-          </button>
-        ))}
+        ].map(([key, count]) => {
+          const active = outcomeFilter === key
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setOutcomeFilter(key as any)}
+              className={`cursor-pointer hover:underline ${
+                active ? "font-semibold text-black" : "text-gray-700"
+              }`}
+              aria-pressed={active}
+              title={`Filter: ${key}`}
+            >
+              {String(key).charAt(0).toUpperCase() + String(key).slice(1)} (
+              {count})
+            </button>
+          )
+        })}
       </div>
 
-      {/* FILTERS */}
+      {/* FILTERS (all clickable cursor) */}
       <div className="flex flex-wrap gap-3 mb-6">
         <select
           className="border rounded px-3 py-2 text-sm cursor-pointer"
@@ -214,6 +217,7 @@ export default function Page() {
           className="border rounded px-3 py-2 text-sm cursor-pointer"
           value={timeSort}
           onChange={(e) => setTimeSort(e.target.value as any)}
+          title="Sort by last override activity time"
         >
           <option value="latest">Latest activity</option>
           <option value="oldest">Oldest activity</option>
@@ -268,8 +272,8 @@ export default function Page() {
 
                   {isOverridden ? (
                     <span className="text-xs text-gray-600">
-                      System: {lead.recommended_action.toUpperCase()} • Overridden:{" "}
-                      {lead.latest_override_action?.toUpperCase()}
+                      System: {lead.recommended_action.toUpperCase()} •
+                      Overridden: {lead.latest_override_action?.toUpperCase()}
                     </span>
                   ) : (
                     <span className="text-xs text-gray-500">
@@ -322,6 +326,7 @@ function formatTimeAgo(dateString: string) {
   const diffHours = Math.floor(diffMins / 60)
   const diffDays = Math.floor(diffHours / 24)
 
+  if (diffMins < 1) return `just now`
   if (diffMins < 60) return `${diffMins}m ago`
   if (diffHours < 24) return `${diffHours}h ago`
   return `${diffDays}d ago`
