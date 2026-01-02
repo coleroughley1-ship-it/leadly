@@ -24,8 +24,10 @@ type LeadDecisionRow = {
   latest_override_reason: string | null
   latest_override_created_at: string | null
 
-  // outcome layer
-  latest_outcome: "won" | "lost" | "no_response" | null
+  // outcome layer (RAW from DB)
+  outcome: "won" | "lost" | null
+
+  // DERIVED (UI only)
   outcome_status: OutcomeStatus
 }
 
@@ -46,12 +48,12 @@ export default function Page() {
   )
   const [timeSort, setTimeSort] = useState<"latest" | "oldest">("latest")
 
-  // Default execution mode
+  // Outcome filter
   const [outcomeFilter, setOutcomeFilter] = useState<
     "all" | "won" | "lost" | "pending"
   >("pending")
 
-  // Optional logging of EFFECTIVE decisions (kept)
+  // Optional logging of EFFECTIVE decisions
   const logDecisions = async (rows: LeadDecisionRow[]) => {
     if (!rows.length) return
 
@@ -61,7 +63,6 @@ export default function Page() {
       recommended_action: lead.effective_action,
     }))
 
-    // Keep silent if table/RLS not ready; don’t crash UI
     const res = await supabase.from("decision_logs").insert(payload)
     if (res.error) {
       console.warn("decision_logs insert failed:", res.error.message)
@@ -72,24 +73,37 @@ export default function Page() {
     const fetchLeads = async () => {
       setLoading(true)
 
-      const { data, error } = await supabase.from("leads_effective").select("*")
+      const { data, error } = await supabase
+        .from("leads_effective")
+        .select("*")
 
       if (error) {
         setError(error.message)
         setLeads([])
-      } else {
-        const rows = (data || []) as LeadDecisionRow[]
-        setLeads(rows)
-        await logDecisions(rows)
+        setLoading(false)
+        return
       }
 
+      // 🔑 SINGLE FIX: NORMALISE OUTCOME → OUTCOME_STATUS
+      const rows = (data || []).map((lead: any) => ({
+        ...lead,
+        outcome_status:
+          lead.outcome === "won"
+            ? "won"
+            : lead.outcome === "lost"
+            ? "lost"
+            : "pending",
+      })) as LeadDecisionRow[]
+
+      setLeads(rows)
+      await logDecisions(rows)
       setLoading(false)
     }
 
     fetchLeads()
   }, [])
 
-  // Outcome counts (kept)
+  // Outcome counts
   const outcomeCounts = useMemo(() => {
     return {
       all: leads.length,
@@ -118,7 +132,6 @@ export default function Page() {
         return true
       })
       .sort((a, b) => {
-        // Time-based sorting (primary)
         const aTime = a.latest_override_created_at
           ? new Date(a.latest_override_created_at).getTime()
           : 0
@@ -130,7 +143,6 @@ export default function Page() {
           return timeSort === "latest" ? bTime - aTime : aTime - bTime
         }
 
-        // Score-based sorting (secondary)
         if (scoreSort === "score_desc") return b.score - a.score
         if (scoreSort === "score_asc") return a.score - b.score
         return 0
@@ -152,7 +164,7 @@ export default function Page() {
     <main className="max-w-3xl mx-auto px-6 py-10 bg-gray-50 min-h-screen">
       <h1 className="text-2xl font-semibold mb-2">Leadly — Decision Feed</h1>
 
-      {/* COUNTS BAR (clickable + cursor) */}
+      {/* COUNTS BAR */}
       <div className="flex gap-4 text-sm mb-6">
         {[
           ["all", outcomeCounts.all],
@@ -164,22 +176,18 @@ export default function Page() {
           return (
             <button
               key={key}
-              type="button"
               onClick={() => setOutcomeFilter(key as any)}
               className={`cursor-pointer hover:underline ${
                 active ? "font-semibold text-black" : "text-gray-700"
               }`}
-              aria-pressed={active}
-              title={`Filter: ${key}`}
             >
-              {String(key).charAt(0).toUpperCase() + String(key).slice(1)} (
-              {count})
+              {String(key).toUpperCase()} ({count})
             </button>
           )
         })}
       </div>
 
-      {/* FILTERS (all clickable cursor) */}
+      {/* FILTERS */}
       <div className="flex flex-wrap gap-3 mb-6">
         <select
           className="border rounded px-3 py-2 text-sm cursor-pointer"
@@ -217,37 +225,19 @@ export default function Page() {
           className="border rounded px-3 py-2 text-sm cursor-pointer"
           value={timeSort}
           onChange={(e) => setTimeSort(e.target.value as any)}
-          title="Sort by last override activity time"
         >
           <option value="latest">Latest activity</option>
           <option value="oldest">Oldest activity</option>
         </select>
-
-        <select
-          className="border rounded px-3 py-2 text-sm cursor-pointer"
-          value={outcomeFilter}
-          onChange={(e) => setOutcomeFilter(e.target.value as any)}
-        >
-          <option value="all">All outcomes</option>
-          <option value="pending">Pending</option>
-          <option value="won">Won</option>
-          <option value="lost">Lost</option>
-        </select>
       </div>
 
-      {loading && (
-        <p className="text-sm text-gray-500">Loading decisions…</p>
-      )}
+      {loading && <p className="text-sm text-gray-500">Loading decisions…</p>}
 
       <div className="space-y-6">
         {visibleLeads.map((lead) => {
           const isOverridden =
             lead.latest_override_action &&
             lead.latest_override_action !== lead.recommended_action
-
-          const recencyText = lead.latest_override_created_at
-            ? formatTimeAgo(lead.latest_override_created_at)
-            : null
 
           return (
             <Link
@@ -257,11 +247,10 @@ export default function Page() {
             >
               <div className="bg-white border rounded-xl p-6 shadow-sm hover:shadow transition">
                 <div className="flex items-start justify-between gap-4">
-                  <h2 className="text-lg font-medium leading-tight">
+                  <h2 className="text-lg font-medium">
                     {lead.company_name}
                   </h2>
-
-                  <span className="text-sm font-semibold text-gray-700">
+                  <span className="text-sm font-semibold">
                     {lead.score}
                   </span>
                 </div>
@@ -270,47 +259,22 @@ export default function Page() {
                   <ActionPill action={lead.effective_action} />
                   <OutcomePill status={lead.outcome_status} />
 
-                  {isOverridden ? (
+                  {isOverridden && (
                     <span className="text-xs text-gray-600">
                       System: {lead.recommended_action.toUpperCase()} •
-                      Overridden: {lead.latest_override_action?.toUpperCase()}
-                    </span>
-                  ) : (
-                    <span className="text-xs text-gray-500">
-                      System: {lead.recommended_action.toUpperCase()}
+                      Overridden
                     </span>
                   )}
                 </div>
 
-                {recencyText && (
-                  <p className="text-xs text-gray-500 mt-2">
-                    {lead.outcome_status === "pending"
-                      ? `Waiting ${recencyText}`
-                      : `${lead.outcome_status.toUpperCase()} ${recencyText}`}
-                  </p>
-                )}
-
                 <div className="mt-5">
                   <p className="text-sm font-medium mb-2">Why this decision</p>
-                  <ul className="space-y-1 text-sm text-gray-800">
+                  <ul className="space-y-1 text-sm">
                     {lead.positive_reasons?.slice(0, 3).map((r, i) => (
                       <li key={i}>• {r}</li>
                     ))}
                   </ul>
                 </div>
-
-                {lead.negative_reasons?.length > 0 && (
-                  <details className="mt-4">
-                    <summary className="text-sm text-gray-600 cursor-pointer">
-                      Risks
-                    </summary>
-                    <ul className="mt-2 space-y-1 text-sm text-gray-600">
-                      {lead.negative_reasons.map((r, i) => (
-                        <li key={i}>• {r}</li>
-                      ))}
-                    </ul>
-                  </details>
-                )}
               </div>
             </Link>
           )
@@ -318,18 +282,6 @@ export default function Page() {
       </div>
     </main>
   )
-}
-
-function formatTimeAgo(dateString: string) {
-  const diffMs = Date.now() - new Date(dateString).getTime()
-  const diffMins = Math.floor(diffMs / 60000)
-  const diffHours = Math.floor(diffMins / 60)
-  const diffDays = Math.floor(diffHours / 24)
-
-  if (diffMins < 1) return `just now`
-  if (diffMins < 60) return `${diffMins}m ago`
-  if (diffHours < 24) return `${diffHours}h ago`
-  return `${diffDays}d ago`
 }
 
 function ActionPill({ action }: { action: Action }) {
