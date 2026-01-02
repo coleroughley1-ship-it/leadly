@@ -68,7 +68,7 @@ export default function DecisionInner() {
 
       // 1️⃣ Fetch system decision (SAFE)
       const decisionRes = await supabase
-        .from("leads_scored")
+        .from("leads_scored_view")
         .select("*")
         .eq("lead_id", leadId)
         .limit(1)
