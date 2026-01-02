@@ -8,10 +8,11 @@ export default function CreateLeadPage() {
   const router = useRouter()
 
   const [companyName, setCompanyName] = useState("")
-  const [loading, setLoading] = useState(false)
+  const [buyerQuality, setBuyerQuality] = useState<number | "">("")
+  const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function handleSubmit(e: React.FormEvent) {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!companyName.trim()) {
@@ -19,71 +20,66 @@ export default function CreateLeadPage() {
       return
     }
 
-    setLoading(true)
+    setSaving(true)
     setError(null)
 
-    const { error } = await supabase
-      .from("Leads")
-      .insert({
-        company_name: companyName
-      })
+    const { error } = await supabase.from("Leads").insert({
+      company_name: companyName,
+      buyer_quality: buyerQuality === "" ? null : buyerQuality,
+    })
 
-    setLoading(false)
+    setSaving(false)
 
     if (error) {
       setError(error.message)
       return
     }
 
-    // success → go back to feed
     router.push("/")
   }
 
   return (
-    <div style={{ maxWidth: 500, margin: "40px auto" }}>
-      <h1 style={{ fontSize: 24, fontWeight: 600 }}>Create Lead</h1>
+    <main className="max-w-md mx-auto px-6 py-10">
+      <h1 className="text-2xl font-semibold mb-6">Create Lead</h1>
 
-      <form onSubmit={handleSubmit} style={{ marginTop: 24 }}>
-        <label style={{ display: "block", marginBottom: 8 }}>
-          Company name
-        </label>
+      <form onSubmit={submit} className="space-y-4">
+        <div>
+          <label className="block text-sm mb-1">Company name *</label>
+          <input
+            className="w-full border rounded px-3 py-2"
+            value={companyName}
+            onChange={(e) => setCompanyName(e.target.value)}
+          />
+        </div>
 
-        <input
-          type="text"
-          value={companyName}
-          onChange={(e) => setCompanyName(e.target.value)}
-          placeholder="e.g. Evolution Fitness XL"
-          style={{
-            width: "100%",
-            padding: 10,
-            border: "1px solid #ccc",
-            borderRadius: 4
-          }}
-        />
+        <div>
+          <label className="block text-sm mb-1">
+            Buyer quality (0–5, optional)
+          </label>
+          <input
+            type="number"
+            min={0}
+            max={5}
+            className="w-full border rounded px-3 py-2"
+            value={buyerQuality}
+            onChange={(e) =>
+              setBuyerQuality(
+                e.target.value === "" ? "" : Number(e.target.value)
+              )
+            }
+          />
+        </div>
 
-        {error && (
-          <p style={{ color: "red", marginTop: 12 }}>
-            {error}
-          </p>
-        )}
+        {error && <p className="text-sm text-red-600">{error}</p>}
 
         <button
           type="submit"
-          disabled={loading}
-          style={{
-            marginTop: 20,
-            padding: "10px 16px",
-            background: "black",
-            color: "white",
-            borderRadius: 4,
-            cursor: "pointer",
-            opacity: loading ? 0.7 : 1
-          }}
+          disabled={saving}
+          className="px-4 py-2 bg-black text-white rounded text-sm disabled:opacity-50"
         >
-          {loading ? "Creating..." : "Create Lead"}
+          {saving ? "Creating…" : "Create lead"}
         </button>
       </form>
-    </div>
+    </main>
   )
 }
-
