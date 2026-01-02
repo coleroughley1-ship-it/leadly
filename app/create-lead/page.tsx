@@ -33,7 +33,7 @@ export default function CreateLeadPage() {
     setLoading(true)
     setError(null)
 
-    const { error } = await supabase.from("leads").insert({
+    const { error } = await supabase.from("Leads").insert({
       company_name: form.company_name,
       buyer_quality: form.buyer_quality,
       deal_simplicity: form.deal_simplicity,
