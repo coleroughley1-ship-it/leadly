@@ -47,7 +47,7 @@ export default function DecisionInner() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // ✅ Effective decision logic
+  // ✅ Effective decision logic (unchanged)
   const effectiveAction = useMemo(() => {
     if (!lead) return "review"
     if (!latestOverride) return lead.recommended_action
@@ -66,15 +66,22 @@ export default function DecisionInner() {
     const fetchAll = async () => {
       setLoading(true)
 
-      // 1️⃣ Fetch system decision
+      // 1️⃣ Fetch system decision (SAFE)
       const decisionRes = await supabase
         .from("leads_scored")
         .select("*")
         .eq("lead_id", leadId)
-        .single()
+        .limit(1)
+        .maybeSingle()
 
       if (decisionRes.error) {
         setError(decisionRes.error.message)
+        setLoading(false)
+        return
+      }
+
+      if (!decisionRes.data) {
+        setError("Decision not found")
         setLoading(false)
         return
       }
@@ -117,6 +124,7 @@ export default function DecisionInner() {
     fetchAll()
   }, [leadId])
 
+  // ✅ Save override (unchanged)
   const saveOverride = async () => {
     if (!lead || !leadId) return
 
@@ -158,7 +166,7 @@ export default function DecisionInner() {
     }
   }
 
-  // ✅ Outcome logging
+  // ✅ Outcome logging (unchanged)
   const markOutcome = async (
     outcome: "won" | "lost" | "no_response"
   ) => {
@@ -196,10 +204,7 @@ export default function DecisionInner() {
 
   return (
     <main className="max-w-2xl mx-auto px-6 py-10">
-      <a
-        href="/"
-        className="text-sm text-gray-600 hover:underline mb-6 inline-block"
-      >
+      <a href="/" className="text-sm text-gray-600 hover:underline mb-6 inline-block">
         ← Back to feed
       </a>
 
@@ -210,7 +215,6 @@ export default function DecisionInner() {
         <span className="text-sm text-gray-600">Score: {lead.score}</span>
       </div>
 
-      {/* ✅ Latest outcome display */}
       {latestOutcome && (
         <div className="text-sm font-medium mb-4">
           Outcome: <span className="uppercase">{latestOutcome.outcome}</span>
@@ -253,7 +257,7 @@ export default function DecisionInner() {
             type="button"
             onClick={saveOverride}
             disabled={saving}
-            className="px-4 py-2 rounded bg-black text-white text-sm disabled:opacity-60 pointer-events-auto cursor-pointer"
+            className="px-4 py-2 rounded bg-black text-white text-sm disabled:opacity-60 cursor-pointer"
           >
             {saving ? "Saving…" : "Save override"}
           </button>
@@ -280,7 +284,6 @@ export default function DecisionInner() {
 
         <div className="flex gap-3">
           <button
-            type="button"
             disabled={!!latestOutcome}
             onClick={() => markOutcome("won")}
             className="px-3 py-1 rounded bg-green-600 text-white text-sm disabled:opacity-40 cursor-pointer"
@@ -289,7 +292,6 @@ export default function DecisionInner() {
           </button>
 
           <button
-            type="button"
             disabled={!!latestOutcome}
             onClick={() => markOutcome("lost")}
             className="px-3 py-1 rounded bg-red-600 text-white text-sm disabled:opacity-40 cursor-pointer"
@@ -298,7 +300,6 @@ export default function DecisionInner() {
           </button>
 
           <button
-            type="button"
             disabled={!!latestOutcome}
             onClick={() => markOutcome("no_response")}
             className="px-3 py-1 rounded bg-gray-500 text-white text-sm disabled:opacity-40 cursor-pointer"
@@ -308,7 +309,7 @@ export default function DecisionInner() {
         </div>
       </section>
 
-      {/* Decision history */}
+      {/* History */}
       <section className="mb-8">
         <h2 className="text-sm font-semibold mb-3">Decision history</h2>
 
@@ -372,9 +373,7 @@ function ActionPill({
   }
 
   return (
-    <span
-      className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${styles[action]}`}
-    >
+    <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${styles[action]}`}>
       {action.toUpperCase()}
     </span>
   )
