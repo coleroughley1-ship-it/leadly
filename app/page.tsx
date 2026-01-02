@@ -162,7 +162,16 @@ export default function Page() {
 
   return (
     <main className="max-w-3xl mx-auto px-6 py-10 bg-gray-50 min-h-screen">
-      <h1 className="text-2xl font-semibold mb-2">Leadly — Decision Feed</h1>
+     <div className="flex items-center justify-between mb-2">
+  <h1 className="text-2xl font-semibold">Leadly — Decision Feed</h1>
+
+  <Link
+    href="/create-lead"
+    className="px-4 py-2 text-sm rounded bg-black text-white cursor-pointer"
+  >
+    + Create Lead
+  </Link>
+</div>
 
       {/* COUNTS BAR */}
       <div className="flex gap-4 text-sm mb-6">
