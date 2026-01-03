@@ -305,7 +305,8 @@ function ActionPill({ action }: { action: Action }) {
     <span
       className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${styles[action]}`}
     >
-      {action.toUpperCase()}
+      {(action ?? "review").toUpperCase()}
+
     </span>
   )
 }
