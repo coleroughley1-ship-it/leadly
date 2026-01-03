@@ -19,7 +19,7 @@ type LeadDecisionRow = {
   negative_reasons: string[]
 
   // override layer
-  effective_action: Action
+  effective_action: Action | null // ✅ FIX 1: allow null (truthful typing)
   latest_override_action: Action | null
   latest_override_reason: string | null
   latest_override_created_at: string | null
@@ -84,7 +84,7 @@ export default function Page() {
         return
       }
 
-      // 🔑 SINGLE FIX: NORMALISE OUTCOME → OUTCOME_STATUS
+      // 🔑 NORMALISE OUTCOME → OUTCOME_STATUS (unchanged)
       const rows = (data || []).map((lead: any) => ({
         ...lead,
         outcome_status:
@@ -162,16 +162,16 @@ export default function Page() {
 
   return (
     <main className="max-w-3xl mx-auto px-6 py-10 bg-gray-50 min-h-screen">
-     <div className="flex items-center justify-between mb-2">
-  <h1 className="text-2xl font-semibold">Leadly — Decision Feed</h1>
+      <div className="flex items-center justify-between mb-2">
+        <h1 className="text-2xl font-semibold">Leadly — Decision Feed</h1>
 
-  <Link
-    href="/create-lead"
-    className="px-4 py-2 text-sm rounded bg-black text-white cursor-pointer"
-  >
-    + Create Lead
-  </Link>
-</div>
+        <Link
+          href="/create-lead"
+          className="px-4 py-2 text-sm rounded bg-black text-white cursor-pointer"
+        >
+          + Create Lead
+        </Link>
+      </div>
 
       {/* COUNTS BAR */}
       <div className="flex gap-4 text-sm mb-6">
@@ -265,7 +265,8 @@ export default function Page() {
                 </div>
 
                 <div className="mt-3 flex items-center gap-3">
-                  <ActionPill action={lead.effective_action} />
+                  {/* ✅ FIX 2: guarantee non-null at render boundary */}
+                  <ActionPill action={lead.effective_action ?? "review"} />
                   <OutcomePill status={lead.outcome_status} />
 
                   {isOverridden && (
@@ -305,8 +306,7 @@ function ActionPill({ action }: { action: Action }) {
     <span
       className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${styles[action]}`}
     >
-      {(action ?? "review").toUpperCase()}
-
+      {action.toUpperCase()}
     </span>
   )
 }
