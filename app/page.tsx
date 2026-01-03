@@ -74,7 +74,7 @@ export default function Page() {
       setLoading(true)
 
       const { data, error } = await supabase
-        .from("leads_effective")
+        .from("leads_scored_view")
         .select("*")
 
       if (error) {
