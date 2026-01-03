@@ -270,7 +270,7 @@ export default function Page() {
 
                   {isOverridden && (
                     <span className="text-xs text-gray-600">
-                      System: {lead.recommended_action.toUpperCase()} •
+                      System: {(lead.recommended_action ?? "review").toUpperCase()}•
                       Overridden
                     </span>
                   )}
