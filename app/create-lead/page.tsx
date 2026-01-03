@@ -15,10 +15,10 @@ export default function CreateLeadPage() {
     deal_simplicity: 3,
     strategic_value: 3,
     momentum: 3,
+    morale_risk: 3,
     can_receive_product: true,
     can_sell_product: true,
     has_capital: true,
-    morale_risk: false,
   })
 
   const update = (key: string, value: any) =>
@@ -40,10 +40,10 @@ export default function CreateLeadPage() {
       deal_simplicity: form.deal_simplicity,
       strategic_value: form.strategic_value,
       momentum: form.momentum,
+      morale_risk: form.morale_risk,
       can_receive_product: form.can_receive_product,
       can_sell_product: form.can_sell_product,
       has_capital: form.has_capital,
-      morale_risk: form.morale_risk,
     })
 
     setLoading(false)
@@ -80,6 +80,7 @@ export default function CreateLeadPage() {
         ["deal_simplicity", "Deal simplicity"],
         ["strategic_value", "Strategic value"],
         ["momentum", "Momentum"],
+        ["morale_risk", "Morale risk"],
       ].map(([key, label]) => (
         <label key={key} className="block mb-4">
           <span className="text-sm font-medium">
@@ -96,12 +97,11 @@ export default function CreateLeadPage() {
         </label>
       ))}
 
-      {/* Toggles */}
+      {/* Capability toggles */}
       {[
         ["can_receive_product", "Can receive product"],
         ["can_sell_product", "Can sell product"],
         ["has_capital", "Has capital"],
-        ["morale_risk", "Morale risk"],
       ].map(([key, label]) => (
         <label key={key} className="flex items-center gap-2 mb-3">
           <input
