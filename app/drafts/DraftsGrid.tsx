@@ -104,14 +104,16 @@ export default function DraftsGrid() {
     select("*")
     eq("status", "draft")
     order("updated_at", { ascending: false })
-
-
-    if (error) {e the full code ethefullcode
+      
+    if (error) {
       setError(error.message)
       setRows([])
       setLoading(false)
       return
     }
+
+      
+    
 
     setRows((data as DraftRow[]) ?? [])
     setLoading(false)
