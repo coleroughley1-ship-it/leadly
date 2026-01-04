@@ -111,10 +111,7 @@ export default function DraftsGrid() {
       setLoading(false)
       return
     }
-
-      
     
-
     setRows((data as DraftRow[]) ?? [])
     setLoading(false)
   }
