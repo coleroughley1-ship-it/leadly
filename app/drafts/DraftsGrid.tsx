@@ -96,25 +96,26 @@ export default function DraftsGrid() {
   const dirtyMap = useRef<Record<string, Partial<Record<EditableKey, any>>>>({})
 
   async function load() {
-    setLoading(true)
-    setError(null)
+  setLoading(true)
+  setError(null)
 
-    const { data, error } = await supabase
-    from("lead_drafts_scored")
-    select("*")
-    eq("status", "draft")
-    order("updated_at", { ascending: false })
-      
-    if (error) {
-      setError(error.message)
-      setRows([])
-      setLoading(false)
-      return
-    }
-    
-    setRows((data as DraftRow[]) ?? [])
+  const { data, error } = await supabase
+    .from("lead_drafts_scored")
+    .select("*")
+    .eq("status", "draft")
+    .order("updated_at", { ascending: false })
+
+  if (error) {
+    setError(error.message)
+    setRows([])
     setLoading(false)
+    return
   }
+
+  setRows((data as DraftRow[]) ?? [])
+  setLoading(false)
+}
+
 
   useEffect(() => {
     load()
