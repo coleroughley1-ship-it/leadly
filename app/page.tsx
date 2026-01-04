@@ -266,7 +266,7 @@ export default function Page() {
 
                 <div className="mt-3 flex items-center gap-3">
                   {/* ✅ FIX 2: guarantee non-null at render boundary */}
-                  <ActionPill action={lead.effective_action ?? "review"} />
+                  <ActionPill action={lead.effective_action} />
                   <OutcomePill status={lead.outcome_status} />
 
                   {isOverridden && (
