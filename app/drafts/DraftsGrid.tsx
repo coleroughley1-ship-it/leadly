@@ -266,6 +266,20 @@ export default function DraftsGrid() {
   return (
     <div style={{ display: "grid", gap: 12 }}>
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        
+        <button
+          onClick={() => router.push("/")}
+          style={{
+            padding: "8px 10px",
+            borderRadius: 10,
+            border: "1px solid #e6e6e6",
+            background: "white",
+            cursor: "pointer",
+          }}
+        >
+          ← Back
+        </button>
+
         <button
           onClick={addBlankRow}
           style={{
