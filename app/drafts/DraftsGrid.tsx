@@ -306,6 +306,22 @@ export default function DraftsGrid() {
         >
           Commit selected ({selectedCount})
         </button>
+        
+        <button
+          onClick={deleteSelectedDrafts}
+          disabled={selectedCount === 0}
+          style={{
+            padding: "8px 10px",
+            borderRadius: 10,
+            border: "1px solid #ffd1d1",
+            background: selectedCount === 0 ? "#f6f6f6" : "#fff5f5",
+            color: "#b91c1c",
+            cursor: selectedCount === 0 ? "not-allowed" : "pointer",
+          }}
+        >
+          Delete selected ({selectedCount})
+        </button>
+
 
         <button
           onClick={load}
